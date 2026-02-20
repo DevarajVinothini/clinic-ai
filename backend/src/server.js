@@ -9,7 +9,12 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'https://clinic-ai-frontend.loca.lt',
+    /\.loca\.lt$/,
+    /\.onrender\.com$/,
+  ],
   credentials: true,
 }));
 app.use(express.json({ limit: '10kb' }));
@@ -40,6 +45,19 @@ app.use('/api/medications', require('./routes/medications'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+// In production, serve React frontend build
+const path = require('path');
+if (process.env.NODE_ENV === 'production') {
+  const frontendBuild = path.join(__dirname, '../../frontend/build');
+  app.use(express.static(frontendBuild));
+  // Catch-all: serve index.html for any non-API route (React client-side routing)
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(frontendBuild, 'index.html'));
+    }
+  });
+}
 
 // Error handling (must be after all routes)
 app.use(notFoundHandler);
